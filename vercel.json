@@ -3,26 +3,18 @@
   "version": 2,
   "builds": [
     {
-      "src": "backend-python/main.py",
-      "use": "@vercel/python"
+      "src": "frontend-next/package.json",
+      "use": "@vercel/next"
     },
     {
-      "src": "public/**",
-      "use": "@vercel/static"
+      "src": "backend-python/main.py",
+      "use": "@vercel/python"
     }
   ],
   "rewrites": [
     {
       "source": "/edit-image",
       "destination": "/backend-python/main.py"
-    },
-    {
-      "source": "/",
-      "destination": "/public/index.html"
-    },
-    {
-      "source": "/(.*)",
-      "destination": "/public/$1"
     }
   ]
 }

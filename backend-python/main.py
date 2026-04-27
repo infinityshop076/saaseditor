@@ -51,18 +51,22 @@ async def edit_image(
 
         # Proceso 100% Serverless: Delegamos la RAM y la magia pesada a la API externa
         # Esto evitará Timeout de 10s en Vercel.
-        c_response = requests.post(
-            'https://clipdrop-api.co/remove-background/v1',
-            files={'image_file': (file.filename, input_image_bytes, file.content_type)},
-            headers={'x-api-key': CLIPDROP_API_KEY},
-        )
+        api_url = "https://clipdrop-api.co/text-remover/v1"
+        files = {
+            'image_file': (file.filename, input_image_bytes, file.content_type)
+        }
+        headers = {
+            'x-api-key': CLIPDROP_API_KEY
+        }
         
-        if c_response.ok:
+        response = requests.post(api_url, files=files, headers=headers)
+        
+        if response.status_code == 200:
             # Procesado perfecto 
             log_usage_to_postgres(file_size)
-            return Response(content=c_response.content, media_type="image/png")
+            return Response(content=response.content, media_type="image/png")
         else:
-            raise HTTPException(status_code=c_response.status_code, detail=f"API ClipDrop se quejó: {c_response.text}")
+            raise HTTPException(status_code=response.status_code, detail=f"API ClipDrop se quejó: {response.text}")
 
     except HTTPException:
         raise
