@@ -1,0 +1,6 @@
+{
+  "name": "saas",
+  "scripts": {
+    "build": "bash build.sh"
+  }
+}

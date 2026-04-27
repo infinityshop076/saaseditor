@@ -1,12 +1,11 @@
 import 'dart:io';
-import 'dart:convert';
 import 'dart:typed_data';
+import 'dart:ui';
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:file_saver/file_saver.dart';
 import 'package:http/http.dart' as http;
 import 'package:desktop_drop/desktop_drop.dart';
-import 'package:cross_file/cross_file.dart';
 
 class ImageBatchItem {
   final String id;
@@ -28,15 +27,28 @@ class UploadScreen extends StatefulWidget {
   final int intensity;
   final VoidCallback onSuccessProcess;
 
-  const UploadScreen({Key? key, required this.intensity, required this.onSuccessProcess}) : super(key: key);
+  const UploadScreen({super.key, required this.intensity, required this.onSuccessProcess});
 
   @override
   State<UploadScreen> createState() => _UploadScreenState();
 }
 
-class _UploadScreenState extends State<UploadScreen> {
+class _UploadScreenState extends State<UploadScreen> with SingleTickerProviderStateMixin {
   final List<ImageBatchItem> _items = [];
   bool _isDragging = false;
+  late AnimationController _bgController;
+
+  @override
+  void initState() {
+    super.initState();
+    _bgController = AnimationController(vsync: this, duration: const Duration(seconds: 10))..repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _bgController.dispose();
+    super.dispose();
+  }
 
   void _onFilesDropped(DropDoneDetails details) async {
     final newFiles = details.files;
@@ -48,10 +60,7 @@ class _UploadScreenState extends State<UploadScreen> {
           !file.name.toLowerCase().endsWith('.jpeg') &&
           !file.name.toLowerCase().endsWith('.webp')) continue;
 
-      if (_items.length >= 10) {
-         _showToast("🚀 Llegaste al límite simultáneo de 10 fotos.");
-         break;
-      }
+      if (_items.length >= 10) break;
       
       final bytes = await file.readAsBytes();
       final item = ImageBatchItem(
@@ -63,18 +72,15 @@ class _UploadScreenState extends State<UploadScreen> {
       
       setState(() => _items.add(item));
       added++;
-      _processItem(item); // Se envía en paralelo
+      _processItem(item);
     }
   }
 
   Future<void> _processItem(ImageBatchItem item) async {
     try {
-      final uri = Uri.parse('http://127.0.0.1:8000/edit-image');
+      final uri = Uri.base.resolve('/edit-image');
       var request = http.MultipartRequest('POST', uri);
-      
-      // Injectando el nivel del sider a la IA
       request.fields['intensity'] = widget.intensity.toString(); 
-      
       request.files.add(
         http.MultipartFile.fromBytes('file', item.originalBytes, filename: item.name)
       );
@@ -87,21 +93,16 @@ class _UploadScreenState extends State<UploadScreen> {
           item.processedBytes = response.bodyBytes;
           item.isProcessing = false;
         });
-        widget.onSuccessProcess(); // Suma al contador lateral
+        widget.onSuccessProcess(); 
       } else {
-        String errorMsg = 'Error ${response.statusCode}';
-        try {
-          final errorData = jsonDecode(response.body);
-          if (errorData.containsKey('detail')) errorMsg = errorData['detail'];
-        } catch (_) {}
         setState(() {
-          item.error = errorMsg;
+          item.error = "Error al conectar";
           item.isProcessing = false;
         });
       }
     } catch (e) {
       setState(() {
-        item.error = 'Fallo de red al contactar con la IA.';
+        item.error = 'Fallo de red';
         item.isProcessing = false;
       });
     }
@@ -110,56 +111,104 @@ class _UploadScreenState extends State<UploadScreen> {
   Future<void> _downloadItem(ImageBatchItem item) async {
     if (item.processedBytes != null) {
       try {
-        String finalName = "limpia_${item.name.split('.').first}";
-
+        String finalName = "ai_clean_${item.name.split('.').first}.png";
         await FileSaver.instance.saveFile(
           name: finalName,
           bytes: item.processedBytes,
-          ext: 'png',
-          mimeType: MimeType.png,
         );
-        _showToast("✨ '$finalName' guardada con éxito en tu dispositivo."); 
-      } catch (e) {
-        _showToast("Error guárdandola: $e");
-      }
+      } catch (e) {}
     }
-  }
-
-  void _showToast(String msg) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text(msg, style: const TextStyle(fontWeight: FontWeight.w500, fontFamily: 'Inter')),
-      backgroundColor: Colors.black87,
-      behavior: SnackBarBehavior.floating,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-    ));
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFFBFBFD), 
-      body: DropTarget(
-        onDragDone: _onFilesDropped,
-        onDragEntered: (detail) => setState(() => _isDragging = true),
-        onDragExited: (detail) => setState(() => _isDragging = false),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 300),
-          color: _isDragging ? Colors.blueAccent.withOpacity(0.04) : Colors.transparent,
-          child: Stack(
-            children: [
-              if (_items.isEmpty)
-                _buildEmptyState()
-              else
-                _buildGridState(),
-                
-              if (_isDragging)
-                Container(
-                  color: Colors.white.withOpacity(0.85),
-                  child: const Center(
-                    child: Text("Suelta la magia aquí ✨", style: TextStyle(fontSize: 36, fontWeight: FontWeight.bold, color: Colors.blueAccent, letterSpacing: -1)),
+      backgroundColor: const Color(0xFF000000), // Dark Mode Puro (Estilo iOS Premium)
+      body: Stack(
+        children: [
+          // Malla Neuronal Animada / Ambient Mesh Gradient
+          AnimatedBuilder(
+            animation: _bgController,
+            builder: (context, child) {
+              return Stack(
+                children: [
+                  Positioned(
+                    top: -150 + (50 * _bgController.value),
+                    left: -100 - (50 * _bgController.value),
+                    child: Container(
+                      width: 500,
+                      height: 500,
+                      decoration: const BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Color(0xFF320066), // Deep Purple
+                      ),
+                    ),
                   ),
-                )
-            ],
+                  Positioned(
+                    bottom: -200 - (40 * _bgController.value),
+                    right: -100 + (60 * _bgController.value),
+                    child: Container(
+                      width: 600,
+                      height: 600,
+                      decoration: const BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Color(0xFF001F4D), // Deep Dark Blue
+                      ),
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
+          
+          // Desenfoque Masivo sobre los orbes logrando un Degradado Suave
+          BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 120, sigmaY: 120),
+            child: Container(color: Colors.transparent),
+          ),
+
+          // Interfaz Activa Principal Glassmorphism
+          DropTarget(
+            onDragDone: _onFilesDropped,
+            onDragEntered: (detail) => setState(() => _isDragging = true),
+            onDragExited: (detail) => setState(() => _isDragging = false),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 300),
+              color: _isDragging ? Colors.white.withOpacity(0.04) : Colors.transparent,
+              child: SafeArea(
+                child: Stack(
+                  children: [
+                    if (_items.isEmpty)
+                      _buildEmptyState()
+                    else
+                      _buildGridState(),
+                      
+                    if (_isDragging)
+                      _buildDragOverlay()
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDragOverlay() {
+    return BackdropFilter(
+      filter: ImageFilter.blur(sigmaX: 25, sigmaY: 25),
+      child: Container(
+        color: Colors.black.withOpacity(0.5),
+        child: Center(
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 50, vertical: 30),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.08),
+              border: Border.all(color: Colors.white.withOpacity(0.2), width: 1.5),
+              borderRadius: BorderRadius.circular(45),
+            ),
+            child: const Text("Suelta las fotos aquí 👋", style: TextStyle(fontFamily: 'Inter', fontSize: 36, fontWeight: FontWeight.w600, color: Colors.white, letterSpacing: -1.2)),
           ),
         ),
       ),
@@ -171,15 +220,25 @@ class _UploadScreenState extends State<UploadScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Container(
-            padding: EdgeInsets.all(24),
-            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(40), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 30)]),
-            child: const Icon(Icons.collections_rounded, size: 80, color: Colors.black87)
+          ClipRRect(
+            borderRadius: BorderRadius.circular(55),
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 25, sigmaY: 25),
+              child: Container(
+                padding: const EdgeInsets.all(45),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.04),
+                  border: Border.all(color: Colors.white.withOpacity(0.12), width: 1.5),
+                  borderRadius: BorderRadius.circular(55),
+                ),
+                child: const Icon(CupertinoIcons.sparkles, size: 90, color: Colors.white)
+              ),
+            ),
           ),
-          const SizedBox(height: 32),
-          const Text("Arrastra tus fotos", style: TextStyle(fontSize: 40, fontWeight: FontWeight.bold, color: Colors.black87, letterSpacing: -1.5)),
-          const SizedBox(height: 12),
-          const Text("Lote Mágico de hasta 10 fotos a la vez.\nSuéltalas libremente en cualquier lugar.", textAlign: TextAlign.center, style: TextStyle(fontSize: 18, color: Colors.black54, height: 1.5, fontWeight: FontWeight.w400)),
+          const SizedBox(height: 40),
+          const Text("Mágico y Profesional", style: TextStyle(fontFamily: 'Inter', fontSize: 48, fontWeight: FontWeight.w700, color: Colors.white, letterSpacing: -1.5)),
+          const SizedBox(height: 16),
+          Text("Arrastra hasta 10 imágenes al lienzo.\nLos cortes neuronales se completarán en la nube.", textAlign: TextAlign.center, style: TextStyle(fontFamily: 'Inter', fontSize: 20, color: Colors.white.withOpacity(0.6), height: 1.5, fontWeight: FontWeight.normal)),
         ],
       ),
     );
@@ -189,27 +248,22 @@ class _UploadScreenState extends State<UploadScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Padding(
-           padding: EdgeInsets.fromLTRB(40, 60, 40, 20),
-           child: Text("Lote Mágico Gratis", style: TextStyle(fontSize: 44, fontWeight: FontWeight.bold, letterSpacing: -1.5)),
+         Padding(
+           padding: const EdgeInsets.fromLTRB(40, 40, 40, 10),
+           child: Text("Cámara Oscura", style: TextStyle(fontFamily: 'Inter', fontSize: 40, fontWeight: FontWeight.bold, letterSpacing: -1.5, color: Colors.white.withOpacity(0.95))),
         ),
         Expanded(
           child: GridView.builder(
             padding: const EdgeInsets.all(40),
             gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-              maxCrossAxisExtent: 320,
-              crossAxisSpacing: 30,
-              mainAxisSpacing: 30,
-              childAspectRatio: 1.0, 
+              maxCrossAxisExtent: 380,
+              crossAxisSpacing: 40,
+              mainAxisSpacing: 40,
+              childAspectRatio: 0.85, 
             ),
             itemCount: _items.length,
             itemBuilder: (context, index) {
-              return AnimatedScale(
-                scale: 1.0,
-                duration: const Duration(milliseconds: 400),
-                curve: Curves.easeOutQuart,
-                child: _buildImageCard(_items[index]),
-              );
+              return _buildCupertinoImageCard(_items[index]);
             },
           ),
         ),
@@ -217,70 +271,73 @@ class _UploadScreenState extends State<UploadScreen> {
     );
   }
 
-  Widget _buildImageCard(ImageBatchItem item) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 20, offset: const Offset(0, 10))],
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(24),
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-             MagnifierImage(
-               originalBytes: item.originalBytes,
-               processedBytes: item.processedBytes,
-               isProcessing: item.isProcessing,
-               error: item.error,
-             ),
-             
-             // MENSAJE DE URGENCIA Y DESCARGA LIBRE
-             if (!item.isProcessing && item.processedBytes != null) ...[
-               // Botón principal de descargar
-               Positioned(
-                 bottom: 16,
-                 right: 16,
-                 child: Material(
-                   color: Colors.transparent,
-                   child: InkWell(
-                     borderRadius: BorderRadius.circular(30),
-                     onTap: () => _downloadItem(item),
-                     child: Container(
-                       padding: const EdgeInsets.all(12),
-                       decoration: const BoxDecoration(color: Colors.black87, shape: BoxShape.circle),
-                       child: const Icon(Icons.download_rounded, color: Colors.white, size: 24),
+  Widget _buildCupertinoImageCard(ImageBatchItem item) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(45), // Extremadamente Redondeado Apple FaceID Flow
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 30, sigmaY: 30),
+        child: Container(
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.03),
+            border: Border.all(color: Colors.white.withOpacity(0.15), width: 1.5),
+            borderRadius: BorderRadius.circular(45), 
+          ),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+               MagnifierImage(
+                 originalBytes: item.originalBytes,
+                 processedBytes: item.processedBytes,
+                 isProcessing: item.isProcessing,
+                 error: item.error,
+               ),
+               
+               if (!item.isProcessing && item.processedBytes != null)
+                 Positioned(
+                   bottom: 25,
+                   left: 25,
+                   right: 25,
+                   child: ClipRRect(
+                     borderRadius: BorderRadius.circular(35),
+                     child: BackdropFilter(
+                       filter: ImageFilter.blur(sigmaX: 25, sigmaY: 25),
+                       child: Container(
+                         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 18),
+                         decoration: BoxDecoration(
+                           color: Colors.black.withOpacity(0.45),
+                           border: Border.all(color: Colors.white.withOpacity(0.2), width: 1.2),
+                           borderRadius: BorderRadius.circular(35)
+                         ),
+                         child: Row(
+                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                           children: [
+                             const Text("HD Extraído", style: TextStyle(fontFamily: 'Inter', fontWeight: FontWeight.w600, color: Colors.white, fontSize: 17, letterSpacing: -0.5)),
+                             GestureDetector(
+                               onTap: () => _downloadItem(item),
+                               child: Container(
+                                 padding: const EdgeInsets.all(10),
+                                 decoration: BoxDecoration(
+                                   color: Colors.white, 
+                                   shape: BoxShape.circle,
+                                   boxShadow: [BoxShadow(color: Colors.white.withOpacity(0.3), blurRadius: 15)]
+                                 ),
+                                 child: const Icon(CupertinoIcons.down_arrow, color: Colors.black, size: 22),
+                               )
+                             )
+                           ],
+                         ),
+                       ),
                      ),
                    ),
                  ),
-               ),
-
-               // Etiqueta Urgencia Gratis
-               Positioned(
-                 bottom: 24,
-                 left: 16,
-                 child: Container(
-                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                   decoration: BoxDecoration(
-                     color: Colors.amberAccent.withOpacity(0.9),
-                     borderRadius: BorderRadius.circular(8),
-                     boxShadow: [BoxShadow(color: Colors.orange.withOpacity(0.2), blurRadius: 8)]
-                   ),
-                   child: const Text("Gratis por tiempo limitado", style: TextStyle(color: Colors.black87, fontSize: 10, fontWeight: FontWeight.bold)),
-                 ),
-               ),
-             ]
-          ]
+            ]
+          ),
         ),
       ),
     );
   }
 }
 
-// ----------------------------------------------------
-// LUPA DE IA
-// ----------------------------------------------------
 class MagnifierImage extends StatefulWidget {
   final Uint8List originalBytes;
   final Uint8List? processedBytes;
@@ -308,14 +365,41 @@ class _MagnifierImageState extends State<MagnifierImage> {
       child: Stack(
         fit: StackFit.expand,
         children: [
-          Image.memory(widget.originalBytes, fit: BoxFit.cover),
+          Image.memory(widget.originalBytes, fit: BoxFit.cover, color: Colors.black.withOpacity(0.4), colorBlendMode: BlendMode.darken),
           if (widget.isProcessing)
-             Container(color: Colors.white.withOpacity(0.4), child: const Center(child: CircularProgressIndicator(color: Colors.black, strokeWidth: 3)))
+             Center(child: Container(
+               padding: const EdgeInsets.all(22),
+               decoration: BoxDecoration(color: Colors.black.withOpacity(0.65), borderRadius: BorderRadius.circular(25)),
+               child: const CupertinoActivityIndicator(radius: 26, color: Colors.white)
+             ))
           else if (widget.error != null)
-             Container(color: Colors.redAccent.withOpacity(0.9), padding: const EdgeInsets.all(16), child: Center(child: Text(widget.error!, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14), textAlign: TextAlign.center)))
+             Center(child: Text(widget.error!, style: const TextStyle(fontFamily: 'Inter', color: CupertinoColors.destructiveRed, fontWeight: FontWeight.bold, fontSize: 18)))
           else if (widget.processedBytes != null && _mousePosition != null) ...[
-             ClipPath(clipper: CircleClipper(center: _mousePosition!, radius: 80), child: Container(color: const Color(0xFFE9E9EB), child: Image.memory(widget.processedBytes!, fit: BoxFit.cover))),
-             Positioned(left: _mousePosition!.dx - 80, top: _mousePosition!.dy - 80, child: IgnorePointer(child: Container(width: 160, height: 160, decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: Colors.white, width: 3), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.15), blurRadius: 10, spreadRadius: 0)])))),
+             ClipPath(
+               clipper: CircleClipper(center: _mousePosition!, radius: 110), 
+               child: Stack(
+                 fit: StackFit.expand,
+                 children: [
+                   Container(color: const Color(0xFF1C1C1E)), 
+                   Image.memory(widget.processedBytes!, fit: BoxFit.cover)
+                 ],
+               )
+             ),
+             Positioned(
+               left: _mousePosition!.dx - 110, 
+               top: _mousePosition!.dy - 110, 
+               child: IgnorePointer(
+                 child: Container(
+                   width: 220, 
+                   height: 220, 
+                   decoration: BoxDecoration(
+                     shape: BoxShape.circle, 
+                     border: Border.all(color: Colors.white.withOpacity(0.85), width: 4.5), 
+                     boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.6), blurRadius: 40, spreadRadius: 10)]
+                   )
+                 )
+               )
+             ),
           ]
         ],
       )

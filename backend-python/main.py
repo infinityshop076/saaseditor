@@ -45,7 +45,7 @@ async def edit_image(
         if file_size == 0: 
             raise HTTPException(status_code=400, detail="El archivo recibido está vacío.")
             
-        CLIPDROP_API_KEY = os.getenv("CLIPDROP_API_KEY")
+        CLIPDROP_API_KEY = "5e90934b32ff1406d3124c9e3cc618c722bab6e742f2a570c10f710dbb2b95f643f7b288e4aa2b1bd6c5aff1e8e09081"
         if not CLIPDROP_API_KEY:
             raise HTTPException(status_code=500, detail="Falta vincular la CLIPDROP_API_KEY como Variable de Entorno en el Dashboard.")
 
