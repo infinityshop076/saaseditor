@@ -1,0 +1,31 @@
+version: '3.8'
+
+services:
+  frontend:
+    build:
+      context: ./frontend-flutter
+      dockerfile: Dockerfile
+    container_name: saas_frontend
+    ports:
+      - "3000:3000"
+    networks:
+      - saas_network
+    depends_on:
+      - backend
+
+  backend:
+    build:
+      context: ./backend-python
+      dockerfile: Dockerfile
+    container_name: saas_backend
+    ports:
+      - "8000:8000"
+    networks:
+      - saas_network
+    environment:
+      # Si se quiere testear con DB real, bastará poner la URL aquí
+      - POSTGRES_URL=
+
+networks:
+  saas_network:
+    driver: bridge

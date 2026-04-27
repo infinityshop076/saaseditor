@@ -1,0 +1,30 @@
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "frontend-flutter/pubspec.yaml",
+      "use": "@vercel/static-build",
+      "config": {
+        "distDir": "build/web"
+      }
+    },
+    {
+      "src": "backend-python/main.py",
+      "use": "@vercel/python"
+    }
+  ],
+  "rewrites": [
+    {
+      "source": "/edit-image",
+      "destination": "/backend-python/main.py"
+    },
+    {
+      "source": "/api/(.*)",
+      "destination": "/backend-python/main.py"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/$1"
+    }
+  ]
+}
