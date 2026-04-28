@@ -1,20 +1,3 @@
 {
-  "name": "saas-ia-editor",
-  "version": 2,
-  "builds": [
-    {
-      "src": "frontend-next/package.json",
-      "use": "@vercel/next"
-    },
-    {
-      "src": "backend-python/main.py",
-      "use": "@vercel/python"
-    }
-  ],
-  "rewrites": [
-    {
-      "source": "/edit-image",
-      "destination": "/backend-python/main.py"
-    }
-  ]
+  "version": 2
 }

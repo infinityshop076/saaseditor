@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import Replicate from "replicate";
 
-const getReplicate = () => new Replicate({
+const replicate = new Replicate({
   auth: process.env.REPLICATE_API_TOKEN,
 });
 
@@ -26,7 +26,6 @@ export async function POST(req: NextRequest) {
 
     // Modelo lucataco/sdxl-inpainting oficial en Replicate
     // Optimizado para eliminación de marcas de agua (Content-Aware Fill)
-    const replicate = getReplicate();
     const output = await replicate.run(
       "lucataco/sdxl-inpainting:91999980d90d8a56b79759d57a2c89288e178129e924a64396e6cf1e4a683935",
       {
@@ -60,7 +59,7 @@ export async function POST(req: NextRequest) {
   } catch (err: any) {
     console.error("AI Engine Error:", err);
     return NextResponse.json(
-      { detail: `[REPLICATE-ENGINE] Error: ${err.message}` },
+      { detail: `Error del motor IA: ${err.message}` },
       { status: 500 }
     );
   }
